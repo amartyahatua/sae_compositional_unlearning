@@ -16,9 +16,9 @@ def main():
     max_length = 512
 
     # Training hyperparameters
-    num_epochs = 3
+    num_epochs = 20
     batch_size = 4
-    learning_rate = 2e-5
+    learning_rate = 5e-6
     gradient_accumulation_steps = 4
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
