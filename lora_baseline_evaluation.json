@@ -1,0 +1,30 @@
+{
+  "forget05": {
+    "dataset": "forget05",
+    "num_samples": 200,
+    "perplexity": 764.7057495117188,
+    "loss": 6.639491030018822,
+    "accuracy": 0.4204466375656355
+  },
+  "holdout05": {
+    "dataset": "holdout05",
+    "num_samples": 200,
+    "perplexity": 583.941650390625,
+    "loss": 6.3698008736327285,
+    "accuracy": 0.456653687585891
+  },
+  "retain95": {
+    "dataset": "retain95",
+    "num_samples": 3800,
+    "perplexity": 998.2977905273438,
+    "loss": 6.906051758173482,
+    "accuracy": 0.4213890218060018
+  },
+  "world_facts": {
+    "dataset": "world_facts",
+    "num_samples": 117,
+    "perplexity": 793.5128784179688,
+    "loss": 6.6764697147865215,
+    "accuracy": 0.49612078003774374
+  }
+}
