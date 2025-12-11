@@ -206,7 +206,7 @@ def detect_target_module_substrings(model):
 def main():
     # Config
     model_name = "gpt2"
-    output_dir = "./models/gpt2_tofu_lora_stable"
+    output_dir = "./models/gpt2_tofu_lora"
     max_length = 512
 
     # LoRA (conservative)
@@ -260,7 +260,7 @@ def main():
 
     # ---------- Datasets ----------
     print("Loading datasets...")
-    train_ds = get_tofudataset("retain95")
+    train_ds = get_tofudataset("full")
     eval_ds = get_tofudataset("forget05")
     print(f"Train size: {len(train_ds)}, Eval size: {len(eval_ds)}")
 
