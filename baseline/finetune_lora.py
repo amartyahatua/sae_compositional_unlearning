@@ -1,12 +1,3 @@
-"""
-Stable LoRA fine-tuning for GPT-2 on TOFU (REWRITTEN, FIXED)
-- Detects correct GPT-2 module names for LoRA
-- Does NOT LoRA-tune embeddings
-- Adds pad token (if missing) and resizes embeddings BEFORE PEFT wrap
-- Uses conservative LoRA + optimizer hyperparams
-- Compatibility wrapper for TrainingArguments (eval_strategy vs evaluation_strategy)
-"""
-
 import os
 import json
 import random
@@ -35,6 +26,7 @@ torch.cuda.manual_seed_all(SEED)
 os.environ["PYTHONHASHSEED"] = str(SEED)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
+
 
 # -------------------------
 # 2) Custom causal collator (keeps labels = input_ids, masks padding with -100)
@@ -80,6 +72,7 @@ def causal_collator(features, tokenizer, pad_to_multiple_of=None):
         "labels": torch.tensor(labels, dtype=torch.long),
     }
     return batch
+
 
 # -------------------------
 # 3) Callback for multi-dataset eval
@@ -141,10 +134,10 @@ class MultiDatasetEvalCallback(TrainerCallback):
 
     def on_epoch_end(self, args, state, control, model=None, **kwargs):
         print(f"\n{'=' * 70}")
-        print(f"📊 EPOCH {state.epoch} EVALUATION")
+        print(f"📊 EPOCH {int(state.epoch)} EVALUATION")
         print(f"{'=' * 70}")
 
-        epoch_results = {"epoch": state.epoch, "global_step": state.global_step}
+        epoch_results = {"epoch": int(state.epoch), "global_step": state.global_step}
 
         for ds_name in ["forget05", "holdout05", "retain95", "world_facts"]:
             print(f" - Evaluating {ds_name} ...", end="", flush=True)
@@ -165,6 +158,7 @@ class MultiDatasetEvalCallback(TrainerCallback):
         print(f"Saved results to: {out_file}")
         print(f"{'=' * 70}\n")
         return control
+
 
 # -------------------------
 # 4) utility: detect valid target modules in model
@@ -200,6 +194,7 @@ def detect_target_module_substrings(model):
         return list(dict.fromkeys(preferred))
     return chosen
 
+
 # -------------------------
 # 5) Main training flow (REWRITTEN)
 # -------------------------
@@ -210,18 +205,18 @@ def main():
     max_length = 512
 
     # LoRA (conservative)
-    lora_r = 8
-    lora_alpha = 16
+    lora_r = 32
+    lora_alpha = 64
     lora_dropout = 0.05
 
     # Training hyperparams (conservative)
-    num_epochs = 5               # keep small for tests; increase to 18+ for final runs
+    num_epochs = 15  # ✅ Train for 15 epochs
     per_device_batch_size = 8
     gradient_accumulation_steps = 4
-    learning_rate = 5e-5
+    learning_rate = 2e-4  # ✅ Higher LR
     weight_decay = 0.01
     max_grad_norm = 1.0
-    warmup_ratio = 0.06
+    warmup_ratio = 0.1
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
@@ -242,7 +237,7 @@ def main():
     detected_modules = detect_target_module_substrings(model)
     print(f"Detected target module substrings for LoRA: {detected_modules}")
 
-    # ---------- LoRA configuration (no embedding fine-tune) ----------
+    # ---------- LoRA configuration ----------
     lora_config = LoraConfig(
         r=lora_r,
         lora_alpha=lora_alpha,
@@ -250,7 +245,7 @@ def main():
         target_modules=detected_modules,
         bias="none",
         task_type=TaskType.CAUSAL_LM,
-        # IMPORTANT: Do NOT include modules_to_save=["wte","wpe"] - we avoid tuning embeddings
+        modules_to_save=["wte", "wpe"]  # ✅ Fine-tune embeddings
     )
 
     model = get_peft_model(model, lora_config)
@@ -260,12 +255,11 @@ def main():
 
     # ---------- Datasets ----------
     print("Loading datasets...")
-    train_ds = get_tofudataset("full")
+    train_ds = get_tofudataset("retain95")  # ✅ Train on retain95 ONLY
     eval_ds = get_tofudataset("forget05")
     print(f"Train size: {len(train_ds)}, Eval size: {len(eval_ds)}")
 
     # Tokenize train (no padding; dynamic padding in collator)
-    # Remove columns conservatively: keep only columns tokenizer expects (we call tokenize_function directly)
     train_tokenized = train_ds.map(
         lambda x: tokenize_function(x, tokenizer, max_length),
         batched=True
@@ -283,7 +277,7 @@ def main():
     train_tokenized.set_format(type="torch", columns=["input_ids", "attention_mask"])
     eval_tokenized.set_format(type="torch", columns=["input_ids", "attention_mask"])
 
-    # ---------- TrainingArguments (compatibility wrapper for eval arg name) ----------
+    # ---------- TrainingArguments ----------
     training_args_params = dict(
         output_dir=output_dir,
         num_train_epochs=num_epochs,
@@ -294,8 +288,8 @@ def main():
         weight_decay=weight_decay,
         logging_dir=f"{output_dir}/logs",
         logging_steps=50,
-        save_strategy="epoch",
-        save_total_limit=2,
+        save_strategy="epoch",  # ✅ Save every epoch
+        save_total_limit=None,  # ✅ CHANGED: Keep ALL checkpoints (no limit)
         load_best_model_at_end=False,
         warmup_ratio=warmup_ratio,
         fp16=torch.cuda.is_available(),
@@ -303,6 +297,7 @@ def main():
         seed=SEED,
         max_grad_norm=max_grad_norm,
         dataloader_drop_last=False,
+        lr_scheduler_type="cosine",  # ✅ Cosine LR scheduler
     )
 
     sig = inspect.signature(TrainingArguments)
@@ -311,13 +306,13 @@ def main():
     elif "eval_strategy" in sig.parameters:
         training_args_params["eval_strategy"] = "epoch"
     else:
-        # fallback: set no eval strategy (but callback still runs)
         print("Warning: TrainingArguments has no evaluation/eval strategy parameter — continuing without it.")
 
     training_args = TrainingArguments(**training_args_params)
 
     # Prepare callback
-    eval_callback = MultiDatasetEvalCallback(tokenizer=tokenizer, max_length=max_length, batch_size=per_device_batch_size)
+    eval_callback = MultiDatasetEvalCallback(tokenizer=tokenizer, max_length=max_length,
+                                             batch_size=per_device_batch_size)
 
     # Data collators
     train_collator = lambda features: causal_collator(features, tokenizer, pad_to_multiple_of=8)
@@ -335,7 +330,7 @@ def main():
 
     # Print quick summary
     num_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Starting training — trainable params: {num_trainable/1e6:.3f}M")
+    print(f"Starting training — trainable params: {num_trainable / 1e6:.3f}M")
 
     # Train
     trainer.train()
@@ -343,20 +338,34 @@ def main():
     # Final evaluation (on forget05)
     print("Final evaluation on forget05...")
     eval_output = trainer.evaluate(eval_dataset=eval_tokenized, metric_key_prefix="final")
-    final_loss = eval_output.get("eval_loss", None)
+    final_loss = eval_output.get("eval_loss", None) or eval_output.get("final_loss", None)
     if final_loss is not None:
         print(f"Final eval loss: {final_loss:.4f}")
         print(f"Final eval ppl: {float(torch.exp(torch.tensor(final_loss))):.2f}")
 
-    # Save adapter + tokenizer
+    # Save final adapter + tokenizer
     os.makedirs(output_dir, exist_ok=True)
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
     with open(os.path.join(output_dir, "base_model.txt"), "w") as f:
         f.write(model_name)
 
-    print("Saved LoRA adapter and tokenizer to", output_dir)
+    print(f"\nSaved LoRA adapter and tokenizer to {output_dir}")
+
+    # ✅ Print checkpoint summary
+    print(f"\n{'=' * 70}")
+    print("CHECKPOINT SUMMARY")
+    print(f"{'=' * 70}")
+    print(f"All epoch checkpoints saved to: {output_dir}/checkpoint-*/")
+    print(f"To use a specific epoch, load from: {output_dir}/checkpoint-<step>/")
+    print(f"\nExample:")
+    print(f"  Epoch 5: {output_dir}/checkpoint-<step-at-epoch-5>/")
+    print(f"  Epoch 10: {output_dir}/checkpoint-<step-at-epoch-10>/")
+    print(f"\nCheck epoch_evaluations.json to find the best epoch based on PPL metrics.")
+    print(f"{'=' * 70}\n")
+
     print("DONE.")
+
 
 if __name__ == "__main__":
     main()
