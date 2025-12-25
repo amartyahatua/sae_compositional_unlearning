@@ -1,3 +1,4 @@
+import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -405,6 +406,9 @@ def main():
     # Save combined results
     with open(os.path.join(output_dir, 'all_results_f10.json'), 'w') as f:
         json.dump(all_results, f, indent=2)
+
+    df_all_results = pd.DataFrame(all_results)
+    df_all_results.to_csv(os.path.join(output_dir, 'all_results_f10.csv'))
 
     # Print summary
     print("\n" + "=" * 70)
