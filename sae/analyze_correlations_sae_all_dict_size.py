@@ -303,53 +303,53 @@
 # #     print(f"\n💾 Saved correlation results to: {save_path}")
 # #
 # #
-# # def main():
-# #     """Main analysis pipeline"""
-# #
-# #     print("\n" + "=" * 70)
-# #     print("PHASE 2: CORRELATION ANALYSIS")
-# #     print("=" * 70)
-# #
-# #     # Load data
-# #     print("\n1) Loading data...")
-# #     superposition_data = load_superposition_data()
-# #     unlearning_data = load_unlearning_results()
-# #
-# #     print(f"   ✓ Loaded superposition data for {len(superposition_data)} dict_sizes")
-# #     print(f"   ✓ Loaded unlearning data for {len(unlearning_data)} authors")
-# #
-# #     # Analyze correlations
-# #     print("\n2) Computing correlations...")
-# #
-# #     for layer in range(12):
-# #         results = analyze_all_dict_sizes(
-# #             superposition_data,
-# #             unlearning_data,
-# #             layer_idx=layer,  # Focus on Layer 11
-# #             threshold='0.0'  # Use threshold 0.01
-# #         )
-# #
-# #         # Save results
-# #         print("\n3) Saving results...")
-# #         save_correlation_results(results)
-# #
-# #         # Create visualizations
-# #         # print("\n4) Creating visualizations...")
-# #         # plot_correlation_trends(results)
-# #         # plot_scatter_all_dict_sizes(results)
-# #
-# #         # Summary
-# #         print("\n" + "=" * 70)
-# #         print("SUMMARY")
-# #         print("=" * 70)
-# #
-# #         for dict_size in sorted(results.keys()):
-# #             if results[dict_size] is not None:
-# #                 stats_data = results[dict_size]['statistics']
-# #                 sig = "✓" if stats_data['pearson_p'] < 0.05 else "✗"
-# #                 print(f"{sig} {dict_size // 1000:2d}k: r={stats_data['pearson_r']:+.3f}, p={stats_data['pearson_p']:.4f}")
-# #
-# #         print("\n✅ Correlation analysis complete!")
+def main():
+    """Main analysis pipeline"""
+
+    print("\n" + "=" * 70)
+    print("PHASE 2: CORRELATION ANALYSIS")
+    print("=" * 70)
+
+    # Load data
+    print("\n1) Loading data...")
+    superposition_data = load_superposition_data()
+    unlearning_data = load_unlearning_results()
+
+    print(f"   ✓ Loaded superposition data for {len(superposition_data)} dict_sizes")
+    print(f"   ✓ Loaded unlearning data for {len(unlearning_data)} authors")
+
+    # Analyze correlations
+    print("\n2) Computing correlations...")
+
+    for layer in range(12):
+        results = analyze_all_dict_sizes(
+            superposition_data,
+            unlearning_data,
+            layer_idx=layer,  # Focus on Layer 11
+            threshold='0.0'  # Use threshold 0.01
+        )
+
+        # Save results
+        print("\n3) Saving results...")
+        save_correlation_results(results)
+
+        # Create visualizations
+        # print("\n4) Creating visualizations...")
+        # plot_correlation_trends(results)
+        # plot_scatter_all_dict_sizes(results)
+
+        # Summary
+        print("\n" + "=" * 70)
+        print("SUMMARY")
+        print("=" * 70)
+
+        for dict_size in sorted(results.keys()):
+            if results[dict_size] is not None:
+                stats_data = results[dict_size]['statistics']
+                sig = "✓" if stats_data['pearson_p'] < 0.05 else "✗"
+                print(f"{sig} {dict_size // 1000:2d}k: r={stats_data['pearson_r']:+.3f}, p={stats_data['pearson_p']:.4f}")
+
+        print("\n✅ Correlation analysis complete!")
 # #
 # #
 # # if __name__ == "__main__":
@@ -1684,7 +1684,7 @@ def analyze_author_specific_features_robust(layer_idx, dict_size=32768, top_k=50
 
 
 if __name__ == "__main__":
-    #main()
+    main()
 
     # Call it
     #plot_32k_l0_correlation()
@@ -1694,8 +1694,8 @@ if __name__ == "__main__":
 
     # Call it
     # feature_df = analyze_author_specific_features()
-    for i in range(12):
-        feature_df = analyze_author_specific_features_robust(i)
+    # for i in range(12):
+    #     feature_df = analyze_author_specific_features_robust(i)
 
 
 
