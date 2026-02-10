@@ -31,6 +31,7 @@ from get_dataset import get_tofudataset, tokenize_function
 from get_model import get_gptmodel
 from get_dataset import get_tofudataset
 
+torch.cuda.empty_cache()
 
 
 # ============================================================
@@ -43,16 +44,16 @@ class Config:
     D_MODEL = 768
 
     # Training configurations
-    # DICT_SIZES = [4096, 8192, 16384, 32768, 65536]
-    DICT_SIZES = [65536]
+    DICT_SIZES = [4096, 8192, 16384, 32768]
+    #DICT_SIZES = [65536]
     LAYERS = list(range(12))  # All 12 GPT-2 layers
-    LAYERS = [8]
+    #LAYERS = [7,8]
 
     # Training hyperparameters
     L1_COEFFICIENT = 5e-5
     LR = 3e-4
     BATCH_SIZE = 256
-    EPOCHS = 8
+    EPOCHS = 20
     WARMUP_EPOCHS = 1
 
     # Dataset
@@ -396,33 +397,33 @@ def main():
 
             try:
                 # Check if already trained
-                if checkpoint_path.exists():
-                    print(f"⚠️  Checkpoint exists, loading...")
-                    checkpoint = torch.load(checkpoint_path)
-                    sae = AnthropicSAE(Config.D_MODEL, dict_size).to(Config.DEVICE)
-                    sae.load_state_dict(checkpoint['state_dict'])
-                    sae.eval()
-                else:
-                    # Extract activations
-                    print(f"\nExtracting activations...")
-                    acts = extract_layer_activations(
-                        model, train_loader, layer_idx, Config.DEVICE, Config.MAX_BATCHES
-                    )
-                    print(f"✓ Extracted {acts.shape[0]} tokens")
+                # if checkpoint_path.exists():
+                #     print(f"⚠️  Checkpoint exists, loading...")
+                #     checkpoint = torch.load(checkpoint_path)
+                #     sae = AnthropicSAE(Config.D_MODEL, dict_size).to(Config.DEVICE)
+                #     sae.load_state_dict(checkpoint['state_dict'])
+                #     sae.eval()
+                # else:
+                # Extract activations
+                print(f"\nExtracting activations...")
+                acts = extract_layer_activations(
+                    model, train_loader, layer_idx, Config.DEVICE, Config.MAX_BATCHES
+                )
+                print(f"✓ Extracted {acts.shape[0]} tokens")
 
-                    # Train SAE
-                    print(f"\nTraining SAE...")
-                    sae = train_sae(
-                        acts,
-                        d_model=Config.D_MODEL,
-                        dict_size=dict_size,
-                        device=Config.DEVICE,
-                        l1_coeff=l1_coeff,
-                        lr=Config.LR,
-                        batch_size=Config.BATCH_SIZE,
-                        epochs=Config.EPOCHS,
-                        warmup_epochs=Config.WARMUP_EPOCHS,
-                    )
+                # Train SAE
+                print(f"\nTraining SAE...")
+                sae = train_sae(
+                    acts,
+                    d_model=Config.D_MODEL,
+                    dict_size=dict_size,
+                    device=Config.DEVICE,
+                    l1_coeff=l1_coeff,
+                    lr=Config.LR,
+                    batch_size=Config.BATCH_SIZE,
+                    epochs=Config.EPOCHS,
+                    warmup_epochs=Config.WARMUP_EPOCHS,
+                )
 
                 # Save
                 torch.save({
@@ -433,7 +434,7 @@ def main():
                 }, checkpoint_path)
                 print(f"✓ Saved to {checkpoint_path}")
 
-                del acts
+                #del acts
                 torch.cuda.empty_cache()
 
                 # Run null intervention test
@@ -472,7 +473,7 @@ def main():
     print("="*80)
 
     results_df = pd.DataFrame(all_results)
-    final_path = results_dir / "final_results.csv"
+    final_path = results_dir / "final_results_78.csv"
     results_df.to_csv(final_path, index=False)
 
     print(f"\nTotal configurations: {len(results_df)}")
