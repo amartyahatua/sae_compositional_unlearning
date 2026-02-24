@@ -1,0 +1,42 @@
+{ 
+  "4096": {
+    "dict_size": 4096,
+    "top_k_features": 128,
+    "suppression_scale": 0.28,
+    "interp_alpha": 8,
+    "feature_multiplier": 2,
+    "notes": "Baseline configuration for 4k dict size"
+  },
+  "8192": {
+    "dict_size": 8192,
+    "top_k_features": 128,
+    "suppression_scale": 0.28,
+    "interp_alpha": 8,
+    "feature_multiplier": 2.5,
+    "notes": "Lower suppression for larger dict size"
+  },
+  "16384": {
+    "dict_size": 16384,
+    "top_k_features": 128,
+    "suppression_scale": 0.28,
+    "interp_alpha": 8,
+    "feature_multiplier": 2.5,
+    "notes": "Same as 8k - works well for mid-range"
+  },
+  "32768": {
+    "dict_size": 32768,
+    "top_k_features": 256,
+    "suppression_scale": 0.15,
+    "interp_alpha": 7,
+    "feature_multiplier": 2.0,
+    "notes": "Higher suppression, lower alpha, higher multiplier"
+  },
+  "65536": {
+    "dict_size": 65536,
+    "top_k_features": 128,
+    "suppression_scale": 0.12,
+    "interp_alpha": 7,
+    "feature_multiplier": 2.5,
+    "notes": "Very low suppression for largest dict size"
+  }
+}
