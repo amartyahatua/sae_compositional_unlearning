@@ -52,8 +52,7 @@ def get_pythia_model(model_name="EleutherAI/pythia-6.9b", device="cuda"):
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
-        device_map="auto",  # Automatically distribute across GPUs if available
-    )
+    ).to(device)
 
     # Pythia tokenizer doesn't have a pad token by default
     if tokenizer.pad_token is None:
