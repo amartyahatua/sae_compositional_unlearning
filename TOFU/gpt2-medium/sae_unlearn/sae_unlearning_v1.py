@@ -227,8 +227,9 @@ def load_tofu_data(author_indices, tokenizer, batch_size=8, max_length=512):
 def compute_loss(model, loader, device, max_batches=None):
     """
     Average cross-entropy loss over loader.
-    Computes loss manually from logits to avoid ForCausalLMLoss
-    dimension errors in newer transformers versions.
+    Uses labels from DataCollatorForLanguageModeling (which sets
+    padding positions to -100) rather than shifting input_ids manually.
+    Falls back to manual shift only if labels not in batch.
     """
     total, n = 0.0, 0
     model.eval()
@@ -239,14 +240,23 @@ def compute_loss(model, loader, device, max_batches=None):
             input_ids      = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
 
-            # Get raw logits only — no labels passed to avoid loss_type issues
             outputs = model(input_ids=input_ids,
                             attention_mask=attention_mask)
-            logits  = outputs.logits  # (B, T, vocab_size)
+            logits  = outputs.logits   # (B, T, vocab_size)
 
-            # Causal shift: predict position t+1 from position t
-            shift_logits = logits[:, :-1, :].contiguous()  # (B, T-1, vocab)
-            shift_labels = input_ids[:, 1:].contiguous()   # (B, T-1)
+            if 'labels' in batch:
+                # DataCollatorForLanguageModeling provides labels with
+                # padding positions already masked to -100
+                labels       = batch['labels'].to(device)          # (B, T)
+                shift_logits = logits[:, :-1, :].contiguous()      # (B, T-1, vocab)
+                shift_labels = labels[:, 1:].contiguous()          # (B, T-1)
+            else:
+                # Fallback: shift input_ids, mask padding manually
+                shift_logits = logits[:, :-1, :].contiguous()
+                shift_labels = input_ids[:, 1:].contiguous()
+                # Mask out padding tokens
+                shift_mask   = attention_mask[:, 1:].contiguous()
+                shift_labels = shift_labels.masked_fill(shift_mask == 0, -100)
 
             loss = F.cross_entropy(
                 shift_logits.view(-1, shift_logits.size(-1)),
@@ -514,16 +524,24 @@ def run_sae_unlearning(model, sae, forget_loader, retain_loader,
 
 def compute_loss_with_grad(model, batch, device):
     """
-    Compute causal LM loss with gradients enabled.
-    Used inside GA training loop — does NOT use torch.no_grad().
+    Compute causal LM loss with gradients enabled (for GA training loop).
+    Uses labels from DataCollatorForLanguageModeling where available.
     """
     input_ids      = batch['input_ids'].to(device)
     attention_mask = batch['attention_mask'].to(device)
 
-    outputs      = model(input_ids=input_ids, attention_mask=attention_mask)
-    logits       = outputs.logits                           # (B, T, vocab)
-    shift_logits = logits[:, :-1, :].contiguous()          # (B, T-1, vocab)
-    shift_labels = input_ids[:, 1:].contiguous()           # (B, T-1)
+    outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+    logits  = outputs.logits               # (B, T, vocab)
+
+    shift_logits = logits[:, :-1, :].contiguous()   # (B, T-1, vocab)
+
+    if 'labels' in batch:
+        labels       = batch['labels'].to(device)
+        shift_labels = labels[:, 1:].contiguous()   # (B, T-1), padding=-100
+    else:
+        shift_labels = input_ids[:, 1:].contiguous()
+        shift_mask   = attention_mask[:, 1:].contiguous()
+        shift_labels = shift_labels.masked_fill(shift_mask == 0, -100)
 
     return F.cross_entropy(
         shift_logits.view(-1, shift_logits.size(-1)),
