@@ -286,7 +286,9 @@ def calibrate_all_configs():
     print("="*80)
 
     # Configuration
-    DICT_SIZES = [4096, 8192, 16384, 32768, 65536]
+    # DICT_SIZES = [4096, 8192, 16384, 32768, 65536]
+    DICT_SIZES = [32768, 4096]
+
     LAYERS = list(range(12))  # 0-11
     OUTPUT_DIR = Path('../results/calibration_comprehensive')
 
